@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    ​
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous" />
+
+    <style>
+        .list-group-item {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+        }
+
+        #loadingSpinner {
+            width: 3rem;
+            height: 3rem;
+        }
+
+        .alert {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="index.html" class="btn btn-secondary">Home</a>
+        <a href="backoffice.html" class="btn btn-primary">New Appointment</a>
+        <h1>Welcome to the backoffice!</h1>
+        <h2>Create all the events that you like</h2>
+
+    </div>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6">
+                <form onsubmit="handleSubmit()">
+                    <div class="form-group">
+                        <label for="name">Event Name</label>
+                        <input type="text" class="form-control" id="name" placeholder="insert the name right here"
+                            required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Event Description</label>
+                        <textarea class="form-control" id="description" rows="3" required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="price">Event Price</label>
+                        <input type="number" class="form-control" id="price" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="time">Event Date-Time</label>
+                        <input type="datetime-local" class="form-control" id="time" required />
+                    </div>
+
+                    <div class="form-group">
+                        <input id="submitEvent" type="submit" class="btn btn-primary" value="Submit event" />
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-6">
+                <div class="spinner-grow text-primary" id="loadingSpinner" role="status">
+                    <span class="sr-only">Loading...</span>
+                </div>
+                <div id="eventsColumn"></div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="alert alert-primary" role="alert" id="alertSuccess">
+            </div>
+            <div class="alert alert-danger" role="alert" id="alertError">
+            </div>
+        </div>
+    </div>
+
+    ​
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous">
+    </script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous">
+    </script>
+    ​
+    <script src="helper.js"></script>
+
+    <script>
+        var selectedEvent = undefined;
+
+        window.onload = async () => {
+            const urlParams = new URLSearchParams(window.location
+                .search); //creating a new instance of the URLSearchParams object
+            const id = urlParams.get("id"); //saving the id retrieved from the url address bar
+            if (
+                id
+                ) { //if I have an id in query string, it means I want to UPDATE an element instead of creating a new one
+                selectedEvent = await getEvent(id); //get the information about the elemtn
+                //set the event data into my edit fields
+                document.querySelector("#name").value = selectedEvent.name;
+                document.querySelector("#description").value = selectedEvent.description
+                document.querySelector("#price").value = selectedEvent.price;
+                document.querySelector("#time").value = selectedEvent.time.replace(":00.000Z", "");
+
+                //change the text of the "SEND" button
+                document.querySelector("#submitEvent").value = "UPDATE"
+            }
+
+            await loadEvents();
+        };
+
+        showLoader = () => {
+            document.querySelector("#loadingSpinner").style.display = "block"
+            var inputs = document.querySelectorAll("input");
+            inputs.forEach(input => input.setAttribute("disabled", "disabled"))
+        }
+
+        hideLoader = () => {
+            document.querySelector("#loadingSpinner").style.display = "none"
+            var inputs = document.querySelectorAll("input");
+            inputs.forEach(input => input.removeAttribute("disabled"))
+        }
+
+        showMessage = (message, type) => {
+            if (type == "error") {
+                document.querySelector("#alertError").innerText = message;
+                document.querySelector("#alertError").style.display = "block";
+                document.querySelector("#alertSuccess").style.display = "none";
+            } else {
+                document.querySelector("#alertSuccess").innerText = message;
+                document.querySelector("#alertSuccess").style.display = "block";
+                document.querySelector("#alertError").style.display = "none";
+            }
+        }
+
+        loadEvents = async () => {
+            showLoader();
+            const events = await getEvents();
+            hideLoader();
+
+            console.log("events", events);
+            const eventsColumn = document.querySelector("#eventsColumn");
+
+            if (events.length > 0) {
+                var mapResult = events //we show events
+                    .map(
+                        event => `
+                <li class="list-group-item"> 
+                    <div>${event.time} - ${event.name} </div>
+                    <div>
+                        <a href="details.html?id=${event._id}"> Details </a>
+                        <a href="backoffice.html?id=${event._id}" class="btn btn-primary">Edit</a>
+                        <input type="button" class="btn btn-danger" value="X" onclick="deleteRow('${event._id}')" />
+                    </div>
+                </li>
+                `
+                    )
+                    .join("");
+
+                eventsColumn.innerHTML = "<ul class='list-group'>" + mapResult + " </ul>";
+            } else {
+                eventsColumn.innerText = "Create events to see them here!";
+            }
+        }
+
+        deleteRow = async (id) => {
+            var button = event.currentTarget;
+            var success = await deleteEvent(id);
+
+            if (success) { //remove from the DOM
+                var li = button.closest(".list-group-item");
+                li.parentElement.removeChild(li);
+            } else {
+                alert("Something went wrong in deleting the item! Please try later")
+            }
+        }
+
+        handleSubmit = async () => {
+            event.preventDefault(); //preventing the default browser event handling
+            showLoader();
+
+            const myEvent = { //gathering the data from the form, field by field
+                name: document.querySelector("#name").value,
+                description: document.querySelector("#description").value,
+                time: document.querySelector("#time").value,
+                price: document.querySelector("#price").value
+            };
+
+            console.log("myEvent", JSON.stringify(myEvent));
+
+            let response;
+            if (selectedEvent)
+                response = await updateEvent(selectedEvent._id, myEvent)
+            else
+                response = await saveEvent(myEvent);
+
+
+
+            hideLoader();
+            //let response = selectedEvent ? await updateEvent(selectedEvent._id, myEvent) : await saveEvent(myEvent);
+            if (response.ok) {
+                showMessage(
+                    selectedEvent ? "Appointment updated correctly" : "Appointment created correctly",
+                    "message")
+                //checking the ok property which stores the successfull result of the operation
+                await loadEvents();
+            } else {
+                var respText = await response.json();
+                showMessage((selectedEvent ? "Error in updating the appointment => " :
+                    "Error in creating the appointment => ") + respText.message, "error")
+            }
+        };
+    </script>
+</body>
+
+</html>
